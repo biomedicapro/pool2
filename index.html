@@ -2,194 +2,276 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Simulación 3D — Mesa de billar y 2 bolas</title>
+  <title>Billar 3D — Babylon.js con vistas tipo Shooter’s Pool</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body { height: 100%; margin: 0; background: #0c0f13; color: #e9eef5; font-family: system-ui, sans-serif; }
-    #app { position: relative; height: 100%; }
-    canvas { display: block; }
+    html, body { height: 100%; margin: 0; background: #0c0f13; color: #e9eef5; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    #wrap { position: relative; height: 100%; }
+    #renderCanvas { width: 100%; height: 100%; display: block; }
+    .toolbar {
+      position: absolute; top: 12px; left: 12px; display: flex; flex-wrap: wrap; gap: 8px;
+      background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.12);
+      padding: 10px; border-radius: 10px; backdrop-filter: blur(6px); z-index: 2;
+    }
+    .toolbar button{
+      appearance: none; border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.08); color: #e9eef5; border-radius: 8px;
+      padding: 8px 10px; font-size: 13px; cursor: pointer;
+    }
+    .toolbar button:hover{ background: rgba(255,255,255,.14); }
+    .toolbar .title{ font-weight: 700; margin-right: 6px; opacity: .9; }
+    .note { font-size: 12px; opacity: .8; margin-left: 4px; align-self: center; }
+
     .hud {
-      position: absolute; left: 12px; bottom: 12px;
-      background: rgba(0,0,0,.45); backdrop-filter: blur(6px);
-      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
-      padding: 10px 12px; font-size: 14px; line-height: 1.35;
+      position: absolute; left: 12px; bottom: 12px; z-index: 2;
+      background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.35;
     }
-    .hud b { font-weight: 700; }
-    .legend {
-      display: inline-grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin-top: 6px;
-    }
-    .swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #0007; }
-    .swatch.felt { background: #1a7a41; }
-    .swatch.ball1 { background: #ffffff; }
-    .swatch.ball2 { background: #d61e1e; }
     .dim {
-      position: absolute; color: #ffffff; font-size: 12px; letter-spacing: .2px;
-      text-shadow: 0 1px 2px #000;
-      padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
+      position: absolute; color: #fff; font-size: 12px; letter-spacing: .2px; z-index: 2;
+      text-shadow: 0 1px 2px #000; padding: 2px 6px; border-radius: 6px;
+      background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
     }
     .dim.h { left: 50%; transform: translateX(-50%); bottom: 56px; }
-    .dim.v { top: 50%; transform: translateY(-50%); right: 18px; writing-mode: vertical-rl; text-orientation: mixed; }
+    .dim.v { top: 50%; transform: translateY(-50%); right: 18px; writing-mode: vertical-rl; }
     .tip {
-      position: absolute; right: 12px; bottom: 12px; opacity: .85; font-size: 12px;
+      position: absolute; right: 12px; bottom: 12px; opacity: .85; font-size: 12px; z-index: 2;
       background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
       padding: 8px 10px; border-radius: 8px;
     }
-    a { color: #9fd2ff; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div id="app">
+  <div id="wrap">
+    <div class="toolbar">
+      <span class="title">Vistas:</span>
+      <button data-view="fps">1) FPS detrás de la blanca</button>
+      <button data-view="low">2) A ras de paño</button>
+      <button data-view="line">3) En línea de tiro (alta)</button>
+      <button data-view="top">4) Cenital</button>
+      <button data-view="cine">5) Esquina cinematográfica</button>
+      <button data-view="free">Libre</button>
+      <span class="note">Atajos: 1–5 / L · Arrastra para orbitar, rueda para zoom, click derecho para pan</span>
+    </div>
+
     <div class="hud">
-      <div><b>Mesa de billar (superficie de juego)</b></div>
-      <div>Medidas reales: 2.84&nbsp;m × 1.42&nbsp;m (9&nbsp;pies, proporción 2:1)</div>
-      <div>Diámetro estándar de bola: 57.15&nbsp;mm (radio 28.575&nbsp;mm)</div>
-      <div class="legend" aria-hidden="true" title="Leyenda de colores">
-        <div class="swatch felt"></div><div>Paño</div>
-        <div class="swatch ball1"></div><div>Bola blanca</div>
-        <div class="swatch ball2"></div><div>Bola roja (ejemplo)</div>
-      </div>
+      <div><b>Mesa de billar</b> — 2.84 m × 1.42 m (proporción 2:1)</div>
+      <div>Diámetro de bola: 57.15 mm (radio 28.575 mm)</div>
     </div>
     <div class="dim h">2.84 m</div>
     <div class="dim v">1.42 m</div>
-    <div class="tip">Arrastra para rotar · Rueda/Pinch para zoom · Click derecho para desplazar</div>
+    <div class="tip">Babylon.js — cámara ArcRotate</div>
+
+    <canvas id="renderCanvas"></canvas>
   </div>
 
-  <!-- Three.js con módulos ES -->
-  <script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js";
-    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/controls/OrbitControls.js";
+  <!-- Babylon.js UMD (no requiere módulos ES) -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
 
-    // --- Escena, cámara, renderer ---
-    const app = document.getElementById('app');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c0f13);
+  <script>
+  (function(){
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, disableWebGL2Support: false, antialias: true });
 
-    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.01, 100);
-    // Usamos unidades métricas reales: 1 unidad = 1 metro
-    camera.position.set(3.2, 1.9, 3.2);
-    camera.lookAt(0, 0, 0);
+    const scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0x0c/255, 0x0f/255, 0x13/255, 1);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    app.appendChild(renderer.domElement);
+    // --- Cámara (ArcRotate: órbita + zoom + pan) ---
+    const camera = new BABYLON.ArcRotateCamera("cam",
+      -Math.PI/4, 0.9, 5.0, new BABYLON.Vector3(0, 0.45, 0), scene);
+    camera.attachControl(canvas, true);
+    camera.lowerRadiusLimit = 0.25;
+    camera.upperRadiusLimit = 10;
+    camera.panningSensibility = 900;
+    camera.wheelPrecision = 50; // zoom más suave
 
-    // --- Controles de órbita ---
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.minDistance = 0.4;  // evita atravesar la mesa
-    controls.maxDistance = 10;
-    controls.target.set(0, 0.45, 0);
+    // --- Luces ---
+    const hemi = new BABYLON.HemisphericLight("hemi", new BABYLON.Vector3(0, 1, 0), scene);
+    hemi.intensity = 0.45;
 
-    // --- Iluminación ---
-    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const dir = new BABYLON.DirectionalLight("dir", new BABYLON.Vector3(-3, -5, -2).normalize(), scene);
+    dir.position = new BABYLON.Vector3(3, 5, 2);
+    dir.intensity = 1.0;
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    keyLight.position.set(3, 5, 2);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(2048, 2048);
-    keyLight.shadow.camera.near = 0.1;
-    keyLight.shadow.camera.far = 20;
-    scene.add(keyLight);
+    const shadowGen = new BABYLON.ShadowGenerator(2048, dir);
+    shadowGen.useBlurExponentialShadowMap = true;
+    shadowGen.blurKernel = 16;
+    shadowGen.transparencyShadow = true;
 
-    const rimLight = new THREE.DirectionalLight(0x88aaff, 0.35);
-    rimLight.position.set(-2.5, 3.5, -3);
-    scene.add(rimLight);
+    // --- Medidas reales (1 unidad = 1 metro) ---
+    const tableLength = 2.84;
+    const tableWidth  = 1.42;
+    const feltThickness = 0.02;
+    const railWidth = 0.08;
 
-    // --- Medidas reales de la mesa (superficie de juego) ---
-    const tableLength = 2.84; // metros (9 ft)
-    const tableWidth  = 1.42; // metros
-    const feltThickness = 0.02; // 2 cm de "cuerpo" para recibir sombras
-    const railWidth = 0.08; // 8 cm de banda/arrietes alrededor (visual)
-
-    // --- Superficie del paño (plano extruido) ---
-    const feltGeom = new THREE.BoxGeometry(tableLength, feltThickness, tableWidth);
-    const feltMat = new THREE.MeshPhongMaterial({ color: 0x1a7a41, shininess: 30, specular: 0x244c2c });
-    const felt = new THREE.Mesh(feltGeom, feltMat);
-    felt.receiveShadow = true;
-    felt.castShadow = false;
+    // --- Paño (caja finita para recibir sombras) ---
+    const felt = BABYLON.MeshBuilder.CreateBox("felt", {
+      width: tableLength, height: feltThickness, depth: tableWidth
+    }, scene);
     felt.position.y = feltThickness / 2;
-    scene.add(felt);
+    const feltMat = new BABYLON.StandardMaterial("feltMat", scene);
+    feltMat.diffuseColor = new BABYLON.Color3(0x1a/255, 0x7a/255, 0x41/255);
+    feltMat.specularColor = new BABYLON.Color3(0.14, 0.25, 0.18);
+    felt.material = feltMat;
+    felt.receiveShadows = true;
 
-    // --- Marcos/bandas alrededor (sólo visual) ---
-    const railMat = new THREE.MeshPhongMaterial({ color: 0x5b3a1e, shininess: 10 });
-    // piezas: arriba, abajo, izquierda, derecha
-    const mkRail = (lenX, lenZ, x, z) => {
-      const g = new THREE.BoxGeometry(lenX, 0.07, lenZ);
-      const m = new THREE.Mesh(g, railMat);
-      m.position.set(x, felt.position.y + 0.07/2, z);
-      m.castShadow = true; m.receiveShadow = true;
-      scene.add(m);
-    };
-    mkRail(tableLength + railWidth*2, railWidth, 0,  tableWidth/2 + railWidth/2); // arriba
-    mkRail(tableLength + railWidth*2, railWidth, 0, -tableWidth/2 - railWidth/2); // abajo
-    mkRail(railWidth, tableWidth,  tableLength/2 + railWidth/2, 0); // derecha
-    mkRail(railWidth, tableWidth, -tableLength/2 - railWidth/2, 0); // izquierda
+    // --- Marcos/bandas (visual) ---
+    const railMat = new BABYLON.StandardMaterial("railMat", scene);
+    railMat.diffuseColor = new BABYLON.Color3(0x5b/255, 0x3a/255, 0x1e/255);
+    railMat.specularPower = 30;
 
-    // --- Líneas blancas finas para enmarcar la superficie de juego ---
-    const edgeGeom = new THREE.EdgesGeometry(new THREE.BoxGeometry(tableLength, 0.0001, tableWidth));
-    const edgeMat  = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 1 });
-    const edges = new THREE.LineSegments(edgeGeom, edgeMat);
-    edges.position.y = felt.position.y + feltThickness/2 + 0.001;
-    scene.add(edges);
-
-    // --- Suelo sutil para las sombras ---
-    const groundGeom = new THREE.PlaneGeometry(20, 20);
-    const groundMat = new THREE.ShadowMaterial({ opacity: 0.18 });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // --- Bolas (diámetro 57.15 mm => radio 28.575 mm) ---
-    const ballRadius = 0.028575; // metros
-    const ballGeom = new THREE.SphereGeometry(ballRadius, 48, 48);
-
-    const ballWhiteMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff, roughness: 0.2, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.05
-    });
-    const ballRedMat = new THREE.MeshPhysicalMaterial({
-      color: 0xd61e1e, roughness: 0.2, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.05
-    });
-
-    const placeBall = (x, z, mat) => {
-      const s = new THREE.Mesh(ballGeom, mat);
-      s.castShadow = true; s.receiveShadow = false;
-      s.position.set(x, felt.position.y + ballRadius, z);
-      scene.add(s);
-      return s;
-    };
-
-    // Posiciones iniciales (sobre el paño, sin colisiones)
-    const ball1 = placeBall(-0.4, 0, ballWhiteMat); // blanca
-    const ball2 = placeBall( 0.4, 0.2, ballRedMat); // roja (de ejemplo)
-
-    // --- Ejes de referencia opcional (tecla H para alternar) ---
-    const axes = new THREE.AxesHelper(0.5);
-    axes.visible = false;
-    scene.add(axes);
-    window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'h') axes.visible = !axes.visible;
-    });
-
-    // --- Ajuste de vista inicial ---
-    controls.update();
-
-    // --- Resize ---
-    function onResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+    function mkRail(lenX, lenZ, x, z) {
+      const m = BABYLON.MeshBuilder.CreateBox("rail", { width: lenX, height: 0.07, depth: lenZ }, scene);
+      m.position.set(x, felt.position.y + 0.035, z);
+      m.material = railMat;
+      m.receiveShadows = true;
+      return m;
     }
-    window.addEventListener('resize', onResize);
+    mkRail(tableLength + railWidth*2, railWidth, 0,  tableWidth/2 + railWidth/2);
+    mkRail(tableLength + railWidth*2, railWidth, 0, -tableWidth/2 - railWidth/2);
+    mkRail(railWidth, tableWidth,  tableLength/2 + railWidth/2, 0);
+    mkRail(railWidth, tableWidth, -tableLength/2 - railWidth/2, 0);
 
-    // --- Animación (sólo para render interactivo, sin mover objetos) ---
-    renderer.setAnimationLoop(() => {
-      controls.update();
-      renderer.render(scene, camera);
+    // --- Borde blanco del paño ---
+    const halfL = tableLength/2, halfW = tableWidth/2;
+    const borderPts = [
+      new BABYLON.Vector3(-halfL, felt.position.y + feltThickness/2 + 0.001, -halfW),
+      new BABYLON.Vector3( halfL, felt.position.y + feltThickness/2 + 0.001, -halfW),
+      new BABYLON.Vector3( halfL, felt.position.y + feltThickness/2 + 0.001,  halfW),
+      new BABYLON.Vector3(-halfL, felt.position.y + feltThickness/2 + 0.001,  halfW),
+      new BABYLON.Vector3(-halfL, felt.position.y + feltThickness/2 + 0.001, -halfW),
+    ];
+    const border = BABYLON.MeshBuilder.CreateLines("border", { points: borderPts }, scene);
+    border.color = new BABYLON.Color3(1,1,1);
+
+    // --- Suelo para sombras sutiles ---
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 20, height: 20 }, scene);
+    ground.position.y = 0;
+    const shadowOnly = new BABYLON.ShadowOnlyMaterial("shadowOnly", scene);
+    shadowOnly.activeLight = dir;
+    shadowOnly.alpha = 0.2;
+    ground.material = shadowOnly;
+    ground.receiveShadows = true;
+
+    // --- Bolas (57.15 mm) ---
+    const ballDiameter = 0.05715, ballRadius = ballDiameter / 2;
+    function makeBall(name, color3){
+      const s = BABYLON.MeshBuilder.CreateSphere(name, { diameter: ballDiameter, segments: 48 }, scene);
+      s.position.y = felt.position.y + ballRadius;
+      const m = new BABYLON.StandardMaterial(name + "Mat", scene);
+      m.diffuseColor = color3;
+      m.specularColor = new BABYLON.Color3(1, 1, 1);
+      m.specularPower = 128;
+      s.material = m;
+      shadowGen.addShadowCaster(s);
+      return s;
+    }
+    const ball1 = makeBall("ballWhite", new BABYLON.Color3(1,1,1));
+    ball1.position.x = -0.4; ball1.position.z =  0.0;
+
+    const ball2 = makeBall("ballRed",   new BABYLON.Color3(0xd6/255, 0x1e/255, 0x1e/255));
+    ball2.position.x =  0.4; ball2.position.z =  0.2;
+
+    // --- Línea de puntería discontinua (opcional) ---
+    function makeDashedLine(a, b, seg = 16){
+      const pts = [];
+      for(let i=0;i<=seg;i++){
+        const t = i/seg;
+        pts.push(new BABYLON.Vector3(
+          a.x + (b.x-a.x)*t,
+          a.y + (b.y-a.y)*t,
+          a.z + (b.z-a.z)*t
+        ));
+      }
+      const line = BABYLON.MeshBuilder.CreateLines("aim", { points: pts, updatable: true }, scene);
+      line.color = new BABYLON.Color3(1,1,1);
+      // simular guiones ocultando 1 de cada 2 segmentos
+      const vis = line.getVerticesData(BABYLON.VertexBuffer.COLORKind);
+      // (no hay buffer de color por defecto; dejamos la línea continua para simplicidad)
+      return line;
+    }
+    const a = ball1.position.clone();
+    const b = ball2.position.clone();
+    a.y = b.y = felt.position.y + ballRadius + 0.003;
+    const aimLine = makeDashedLine(a, b, 24);
+
+    // --- Helpers de vistas tipo Shooter's Pool ---
+    function dirWhiteToRed(){
+      const d = ball2.position.subtract(ball1.position);
+      d.y = 0;
+      return d.normalize();
+    }
+
+    function flyCamera(toPos, toTarget, toFov, ms = 650){
+      // Animar position, target y fov
+      const fps = 60, total = Math.round((ms/1000)*fps);
+      const ease = BABYLON.CubicEase; const easing = new ease();
+      easing.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEINOUT);
+
+      function anim(target, prop, from, to){
+        const a = new BABYLON.Animation("anim_"+prop, prop, fps, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+        a.setKeys([{frame:0, value: from}, {frame: total, value: to}]); a.setEasingFunction(easing);
+        scene.beginDirectAnimation(target, [a], 0, total, false);
+      }
+      function animScalar(target, prop, from, to){
+        const a = new BABYLON.Animation("anim_"+prop, prop, fps, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+        a.setKeys([{frame:0, value: from}, {frame: total, value: to}]); a.setEasingFunction(easing);
+        scene.beginDirectAnimation(target, [a], 0, total, false);
+      }
+
+      anim(camera, "position", camera.position.clone(), toPos.clone());
+      anim(camera, "target",   camera.target.clone(),   toTarget.clone());
+      animScalar(camera, "fov", camera.fov, toFov);
+    }
+
+    function setView(name){
+      const dir = dirWhiteToRed();
+      const upY = felt.position.y + ballRadius;
+      if(name==='fps'){
+        const eye = ball1.position.add(dir.scale(-0.25)).add(new BABYLON.Vector3(0, ballRadius + 0.12, 0));
+        const look = ball1.position.add(dir.scale(1.0));
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(50));
+      } else if(name==='low'){
+        const eye = ball1.position.add(dir.scale(-0.18)).add(new BABYLON.Vector3(0, ballRadius + 0.02, 0));
+        const look = ball1.position.add(dir.scale(0.8));
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(35));
+      } else if(name==='line'){
+        const eye = ball1.position.add(dir.scale(-0.7)).add(new BABYLON.Vector3(0, 0.6, 0));
+        const look = ball1.position.add(dir.scale(1.0));
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(45));
+      } else if(name==='top'){
+        const eye = new BABYLON.Vector3(0, 3.0, 0.001);
+        const look = new BABYLON.Vector3(0, upY, 0);
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(30));
+      } else if(name==='cine'){
+        const eye = new BABYLON.Vector3(tableLength/2 + 0.8, 0.9, tableWidth/2 + 0.8);
+        const look = new BABYLON.Vector3(0, felt.position.y + 0.2, 0);
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(50));
+      } else if(name==='free'){
+        const eye = new BABYLON.Vector3(3.2, 1.9, 3.2);
+        const look = new BABYLON.Vector3(0, 0.45, 0);
+        flyCamera(eye, look, BABYLON.Tools.ToRadians(55), 500);
+      }
+    }
+
+    // Botones y atajos
+    document.querySelectorAll('.toolbar button').forEach(btn=>{
+      btn.addEventListener('click', ()=> setView(btn.dataset.view));
     });
+    window.addEventListener('keydown', (e)=>{
+      const k = e.key.toLowerCase();
+      if(k==='1') setView('fps');
+      else if(k==='2') setView('low');
+      else if(k==='3') setView('line');
+      else if(k==='4') setView('top');
+      else if(k==='5') setView('cine');
+      else if(k==='l') setView('free');
+    });
+
+    // Render loop
+    engine.runRenderLoop(()=> scene.render());
+    window.addEventListener("resize", ()=> engine.resize());
+  })();
   </script>
 </body>
 </html>
